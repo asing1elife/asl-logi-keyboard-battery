@@ -11,7 +11,7 @@
 ./manage.sh status      # 服務狀態及系統配件電量
 ./manage.sh read        # 一次查詢真實電量，不新增小工具項目
 ./manage.sh activity    # 查看 macOS 閒置秒數及是否允許查詢（不存取鍵盤）
-./manage.sh test        # 驗證閒置／恢復及禁止查詢邏輯（不存取真實鍵盤）
+./manage.sh test        # 驗證電量閒置邏輯及 G HUB 控制工具（使用模擬，不操作真實裝置／服務）
 ./manage.sh stop        # 停止，並停用登入自啟動
 ./manage.sh start       # 恢復執行及登入自啟動
 ./manage.sh logs        # 查看最近的日誌
@@ -20,11 +20,32 @@
 
 需要 macOS 及 Xcode Command Line Tools 的 clang，無第三方執行期依賴。無需管理員權限。編譯或改動後，執行 `./manage.sh install` 更新。
 
+## G HUB 背景程序檢查與停止
+
+`ghub.sh` 是獨立的隨用隨執行工具，不會新增常駐程序，也不影響鍵盤電量服務。
+
+```sh
+./ghub.sh status        # 檢查殘留程序、已載入的服務、自啟動是否被禁用；不改設定
+./ghub.sh stop          # 禁用已知自啟動服務、卸載服務，再正常結束殘留程序
+./ghub.sh stop --force  # 同上；若 5 秒後仍有殘留，才使用 SIGKILL 強制結束
+./ghub.sh restore       # 重新允許自啟動，並載入已安裝的 G HUB 服務
+```
+
+- 只匹配 `/Applications/lghub.app/Contents/` 或使用者 `~/Applications/lghub.app/Contents/` 內的執行檔，並管理目前登入使用者的 `com.logi.ghub`、`application.com.logi.ghub.*` 及系統的 `com.logi.ghub.updater`。不使用模糊的 `pkill logi`，不停止 Options+ 或本專案的電量程式。
+- `stop` 會先禁止服務自啟動，再卸載它們，最後處理殘留程序；每次發送訊號前重新核對 PID 的程式路徑。不會結束其他登入使用者的 G HUB 程序，遇到這種情況會報告未完成。系統更新服務的停用則影響整台電腦。
+- 系統服務或 root 程序需要管理員權限時，會透過終端機的 `sudo` 要求認證。請直接執行腳本，不要對整支腳本使用 sudo。認證失敗會在修改設定前中止；其他中途錯誤會回傳非零狀態，不會假裝成功。
+- 成功停止後會再等待 2 秒確認沒有立即重新啟動。停用狀態由 macOS 保存，重啟後仍有效；重新安裝／更新 G HUB 或另有軟體主動啟動它，仍可能需要重新檢查。
+- `restore` 是「重新啟用 G HUB」而非還原先前設定快照，會啟用上述 G HUB 服務，可能開始執行 G HUB 背景元件。此命令不會自動執行。
+- `status` 的 `startup=disabled` 表示已禁止自啟動，`enabled` 表示明確允許，`default` 表示沒有覆寫，需要配合原服務設定判斷。程序殘留和服務啟用是兩個獨立狀態。
+- 工具不移除 G HUB、不改動它的安裝檔案，也不修改鍵盤或音響設定。非標準安裝路徑或未來新增的服務名稱需要調整腳本後才能涵蓋。
+
 ## 檔案
 
 - `src/keyboard-battery.c`：完整程式原始碼。
 - `bin/keyboard-battery`：編譯後的執行檔。
 - `manage.sh`：安裝、啟停、查詢和移除。
+- `ghub.sh`：G HUB 殘留檢查、停止／強制停止及恢復。
+- `tests/`：閒置邏輯與 G HUB 工具的模擬測試。
 - `config/local.keyboard-battery.plist`：安裝時產生的 launchd 設定範本。
 - `runtime/`：執行鎖及日誌。只有電量／狀態變化或錯誤時記錄。
 - `~/Library/LaunchAgents/local.keyboard-battery.plist`：唯一位於專案外的設定檔，指向本專案的執行檔及日誌。這是 macOS 登入自啟動所需的標準位置。

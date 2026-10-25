@@ -67,7 +67,8 @@ case "${1:-status}" in
         mkdir -p "$ROOT/bin"
         /usr/bin/clang -std=c11 -Wall -Wextra -Werror -O2 "$ROOT/tests/idle-test.c" \
             -framework IOKit -framework CoreFoundation -o "$ROOT/bin/idle-test"
-        "$ROOT/bin/idle-test" ;;
+        "$ROOT/bin/idle-test"
+        /bin/bash "$ROOT/tests/ghub-test.sh" ;;
     install) install_service ;;
     stop)
         check_owned_plist
